@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(server_chinese_chess)
 
 set(CMAKE_CXX_STANDARD 17)
+add_compile_definitions(_WIN32_WINNT=0x0601)
 
 # Boost
 find_package(Boost REQUIRED COMPONENTS system)
@@ -17,7 +18,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
-add_executable(server_chinese_chess main.cpp)
+include_directories(include)
+
+file(GLOB_RECURSE SRC_FILES "src/*.cpp")
+add_executable(server_chinese_chess main.cpp ${SRC_FILES})
 
 
 target_link_libraries(server_chinese_chess PRIVATE
