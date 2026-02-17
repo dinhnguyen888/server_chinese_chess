@@ -79,9 +79,30 @@ void WsSession::handle_message(const std::string& text) {
     }
 
     const std::string type = msg.value("type", "");
+    if (msg.contains("name")) name_ = msg.value("name", name_.empty() ? "Player" : name_);
+
     if (type == "find_match") {
-        name_ = msg.value("name", "Player");
         lobby_.try_pair(shared_from_this());
+        return;
+    }
+    if (type == "create_room") {
+        lobby_.create_room(shared_from_this(), msg.value("roomName", "My Room"));
+        return;
+    }
+    if (type == "join_room") {
+        lobby_.join_room(shared_from_this(), msg.value("roomId", ""));
+        return;
+    }
+    if (type == "list_rooms") {
+        lobby_.get_room_list(shared_from_this());
+        return;
+    }
+    if (type == "search_room") {
+        lobby_.search_room(shared_from_this(), msg.value("query", ""));
+        return;
+    }
+    if (type == "chat") {
+        lobby_.chat_in_room(shared_from_this(), msg.value("message", ""));
         return;
     }
     if (type == "move") {
@@ -121,6 +142,7 @@ void WsSession::on_close() {
         return;
     closed_ = true;
     lobby_.cancel_waiting(shared_from_this());
+    
     if (auto peer = opponent_lock()) {
         peer->clear_opponent();
         peer->send_json(json{{"type", "opponent_left"}});

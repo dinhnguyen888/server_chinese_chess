@@ -12,6 +12,7 @@ class MatchLobby;
 class WsSession : public std::enable_shared_from_this<WsSession> {
 public:
     std::string name_;
+    std::string current_room_id_;
 
     WsSession(boost::asio::ip::tcp::socket&& socket, MatchLobby& lobby);
 
