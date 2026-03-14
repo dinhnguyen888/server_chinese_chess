@@ -3,6 +3,7 @@
 #include "db/Database.h"
 #include <iostream>
 #include <jwt-cpp/jwt.h>
+#include <jwt-cpp/traits/nlohmann-json/defaults.h>
 
 namespace beast = boost::beast;
 namespace websocket = beast::websocket;

@@ -36,6 +36,7 @@ bool Database::init_connection(const std::string& conn_str) {
 }
 
 bool Database::register_user(const std::string& username, const std::string& password) {
+    if (username.length() > 10 || username.empty()) return false;
     try {
         if (conn_str_.empty()) return false;
         pqxx::connection c(conn_str_);
@@ -52,6 +53,7 @@ bool Database::register_user(const std::string& username, const std::string& pas
 }
 
 bool Database::login_user(const std::string& username, const std::string& password) {
+    if (username.length() > 10 || username.empty()) return false;
     try {
         if (conn_str_.empty()) return false;
         pqxx::connection c(conn_str_);
