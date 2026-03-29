@@ -34,8 +34,18 @@ void Database::init() {
             "password VARCHAR(255) NOT NULL"
             ");"
         );
+        w.exec(
+            "CREATE TABLE IF NOT EXISTS match_history ("
+            "id SERIAL PRIMARY KEY,"
+            "username VARCHAR(50) NOT NULL,"
+            "opponent VARCHAR(50) NOT NULL,"
+            "result VARCHAR(10) NOT NULL,"
+            "duration_seconds INT DEFAULT 0,"
+            "played_at TIMESTAMP DEFAULT NOW()"
+            ");"
+        );
         w.commit();
-        std::cout << "Database initialized (users table checked).\n";
+        std::cout << "Database initialized (users + match_history tables checked).\n";
     } catch (const std::exception& e) {
         std::cerr << "DB Init Error: " << e.what() << "\n";
     }
@@ -82,4 +92,47 @@ bool Database::login_user(const std::string& username, const std::string& passwo
         std::cerr << "DB Login Error: " << e.what() << "\n";
         return false;
     }
+}
+
+bool Database::save_match(const std::string& username, const std::string& opponent,
+                          const std::string& result, int duration_seconds) {
+    try {
+        if (conn_str_.empty()) return false;
+        pqxx::connection c(conn_str_);
+        pqxx::work w(c);
+        w.exec_params(
+            "INSERT INTO match_history (username, opponent, result, duration_seconds) VALUES ($1, $2, $3, $4);",
+            username, opponent, result, duration_seconds
+        );
+        w.commit();
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "DB SaveMatch Error: " << e.what() << "\n";
+        return false;
+    }
+}
+
+std::vector<MatchRecord> Database::get_history(const std::string& username, int limit) {
+    std::vector<MatchRecord> records;
+    try {
+        if (conn_str_.empty()) return records;
+        pqxx::connection c(conn_str_);
+        pqxx::nontransaction w(c);
+        pqxx::result r = w.exec_params(
+            "SELECT opponent, result, TO_CHAR(played_at, 'DD/MM/YYYY HH24:MI') as played_at, duration_seconds "
+            "FROM match_history WHERE username=$1 ORDER BY played_at DESC LIMIT $2;",
+            username, limit
+        );
+        for (const auto& row : r) {
+            MatchRecord rec;
+            rec.opponent = row["opponent"].c_str();
+            rec.result = row["result"].c_str();
+            rec.played_at = row["played_at"].c_str();
+            rec.duration_seconds = row["duration_seconds"].as<int>();
+            records.push_back(rec);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "DB GetHistory Error: " << e.what() << "\n";
+    }
+    return records;
 }

@@ -178,12 +178,69 @@ void WsSession::handle_message(const std::string& text) {
         return;
     }
     if (type == "move") {
-        if (auto peer = opponent_lock())
-            peer->send_json(msg);
+        auto peer = opponent_lock();
+        if (peer) peer->send_json(msg);
+
+        // ── Tự động lưu lịch sử khi trận kết thúc ──
+        // winner: 1 = người gửi move thắng, -1 = đối thủ thắng, null = chưa xong
+        if (!msg["winner"].is_null() && peer) {
+            int winner_side = msg["winner"].get<int>();
+            std::string my_name  = name_;
+            std::string opp_name = peer->name_;
+
+            // Tính thời lượng (nếu frontend gửi kèm duration_seconds)
+            int duration = msg.value("duration_seconds", 0);
+
+            std::string my_result, opp_result;
+            if (winner_side == 1) {          // người gửi move thắng
+                my_result  = "win";
+                opp_result = "lose";
+            } else if (winner_side == -1) {  // đối thủ thắng
+                my_result  = "lose";
+                opp_result = "win";
+            } else {
+                my_result = opp_result = "draw";
+            }
+
+            if (!my_name.empty() && !opp_name.empty()) {
+                Database::get_instance().save_match(my_name,  opp_name, my_result,  duration);
+                Database::get_instance().save_match(opp_name, my_name,  opp_result, duration);
+                std::cout << "Match saved: " << my_name << "(" << my_result << ") vs "
+                          << opp_name << "(" << opp_result << ")\n";
+            }
+        }
         return;
     }
     if (type == "ping") {
         send_json(json{{"type", "pong"}});
+        return;
+    }
+
+    if (type == "get_history") {
+        std::string user = name_;
+        auto records = Database::get_instance().get_history(user, 20);
+        json arr = json::array();
+        for (const auto& r : records) {
+            arr.push_back({
+                {"opponent", r.opponent},
+                {"result", r.result},
+                {"played_at", r.played_at},
+                {"duration_seconds", r.duration_seconds}
+            });
+        }
+        send_json(json{{"type", "history_list"}, {"records", arr}});
+        return;
+    }
+    if (type == "game_result") {
+        std::string opponent = msg.value("opponent", "");
+        std::string result   = msg.value("result", "draw");  // "win" | "lose" | "draw"
+        int duration         = msg.value("duration_seconds", 0);
+        if (!name_.empty() && !opponent.empty()) {
+            Database::get_instance().save_match(name_, opponent, result, duration);
+            // Cũng lưu phía đối thủ với kết quả ngược lại
+            std::string opp_result = (result == "win") ? "lose" : (result == "lose" ? "win" : "draw");
+            Database::get_instance().save_match(opponent, name_, opp_result, duration);
+        }
         return;
     }
 

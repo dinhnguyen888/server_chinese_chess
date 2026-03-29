@@ -1,5 +1,13 @@
 #pragma once
 #include <string>
+#include <vector>
+
+struct MatchRecord {
+    std::string opponent;
+    std::string result;   // "win" | "lose" | "draw"
+    std::string played_at;
+    int duration_seconds;
+};
 
 class Database {
 public:
@@ -24,6 +32,13 @@ public:
 
     // Trả về true nếu login đúng
     bool login_user(const std::string& username, const std::string& password);
+
+    // Lưu kết quả một trận đấu
+    bool save_match(const std::string& username, const std::string& opponent,
+                    const std::string& result, int duration_seconds);
+
+    // Lấy danh sách lịch sử đấu của người chơi (mới nhất trước)
+    std::vector<MatchRecord> get_history(const std::string& username, int limit = 20);
 
 private:
     Database() = default;
