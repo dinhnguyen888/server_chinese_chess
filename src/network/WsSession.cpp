@@ -1,6 +1,7 @@
 #include "network/WsSession.h"
 #include "game/MatchLobby.h"
-#include "db/Database.h"
+#include "db/user_db.h"
+#include "db/match_db.h"
 #include <iostream>
 #include <jwt-cpp/jwt.h>
 #include <jwt-cpp/traits/nlohmann-json/defaults.h>
@@ -126,7 +127,7 @@ void WsSession::handle_message(const std::string& text) {
     if (type == "register") {
         std::string user = msg.value("username", "");
         std::string pass = msg.value("password", "");
-        if (Database::get_instance().register_user(user, pass)) {
+        if (db::user::register_user(user, pass)) {
             name_ = user;
             std::string token = generate_jwt(user);
             send_json(json{{"type", "auth_success"}, {"username", user}, {"action", "register"}, {"token", token}});
@@ -136,12 +137,14 @@ void WsSession::handle_message(const std::string& text) {
         return;
     }
     if (type == "login") {
-        std::string user = msg.value("username", "");
-        std::string pass = msg.value("password", "");
-        if (Database::get_instance().login_user(user, pass)) {
-            name_ = user;
-            std::string token = generate_jwt(user);
-            send_json(json{{"type", "auth_success"}, {"username", user}, {"action", "login"}, {"token", token}});
+        std::string username = msg.value("username", "");
+        std::string password = msg.value("password", "");
+        auto user_opt = db::user::login_user(username, password);
+        
+        if (user_opt) {
+            name_ = user_opt->username;
+            std::string token = generate_jwt(name_);
+            send_json(json{{"type", "auth_success"}, {"username", name_}, {"action", "login"}, {"token", token}});
         } else {
             send_json(json{{"type", "error"}, {"message", "Sai tên đăng nhập hoặc mật khẩu"}});
         }
@@ -211,8 +214,8 @@ void WsSession::handle_message(const std::string& text) {
             }
 
             if (!my_name.empty() && !opp_name.empty()) {
-                Database::get_instance().save_match(my_name,  opp_name, my_result,  duration, moves_array);
-                Database::get_instance().save_match(opp_name, my_name,  opp_result, duration, moves_array);
+                db::match::save_match(my_name,  opp_name, my_result,  duration, moves_array);
+                db::match::save_match(opp_name, my_name,  opp_result, duration, moves_array);
                 std::cout << "Match saved: " << my_name << "(" << my_result << ") vs "
                           << opp_name << "(" << opp_result << ")\n";
             }
@@ -226,7 +229,7 @@ void WsSession::handle_message(const std::string& text) {
 
     if (type == "get_history") {
         std::string user = name_;
-        auto records = Database::get_instance().get_history(user, 20);
+        auto records = db::match::get_history(user, 20);
         json arr = json::array();
         for (const auto& r : records) {
             arr.push_back({
@@ -243,11 +246,9 @@ void WsSession::handle_message(const std::string& text) {
     if (type == "get_replay") {
         int match_id = msg.value("match_id", -1);
         if (match_id != -1) {
-            auto moves = Database::get_instance().get_match_moves(match_id);
+            auto moves = db::match::get_match_moves(match_id);
             json moves_arr = json::array();
-            for (const auto& m : moves) {
-                moves_arr.push_back(m);
-            }
+            for (const auto& m : moves) moves_arr.push_back(m);
             send_json(json{{"type", "replay_data"}, {"match_id", match_id}, {"moves", moves_arr}});
         }
         return;
@@ -265,10 +266,9 @@ void WsSession::handle_message(const std::string& text) {
         }
 
         if (!name_.empty() && !opponent.empty()) {
-            Database::get_instance().save_match(name_, opponent, result, duration, moves_array);
-            // Cũng lưu phía đối thủ với kết quả ngược lại
+            db::match::save_match(name_, opponent, result, duration, moves_array);
             std::string opp_result = (result == "win") ? "lose" : (result == "lose" ? "win" : "draw");
-            Database::get_instance().save_match(opponent, name_, opp_result, duration, moves_array);
+            db::match::save_match(opponent, name_, opp_result, duration, moves_array);
         }
         return;
     }

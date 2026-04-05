@@ -6,13 +6,16 @@
 
 int main() {
     try {
-        // Cấu hình CSDL: Tự động tạo 'chess_db' 
-        Database::get_instance().auto_create_db("localhost", "5432", "postgres", "postgres", "chess_db");
+        // ── 1. Tự động tạo database nếu chưa có ──────────────────────
+        db::auto_create("localhost", "5432", "postgres", "postgres", "chess_db");
 
-        std::string db_conn = "host=localhost port=5432 user=postgres password=postgres dbname=chess_db";
-        Database::get_instance().init_connection(db_conn);
-        Database::get_instance().init();
+        // ── 2. Kết nối đến database ───────────────────────────────────
+        db::connect("host=localhost port=5432 user=postgres password=postgres dbname=chess_db");
 
+        // ── 3. Khởi tạo schema (tạo bảng nếu chưa có) ────────────────
+        db::init_schema();
+
+        // ── 4. Khởi động WebSocket server ─────────────────────────────
         auto const address = boost::asio::ip::make_address("0.0.0.0");
         unsigned short port = 8080;
 
