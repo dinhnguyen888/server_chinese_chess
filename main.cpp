@@ -1,6 +1,8 @@
 #include "network/Listener.h"
 #include "game/MatchLobby.h"
 #include "db/Database.h"
+#include "services/JwtAuthService.h"
+#include "services/DbMatchHistoryService.h"
 #include <boost/asio.hpp>
 #include <iostream>
 
@@ -21,7 +23,15 @@ int main() {
 
         boost::asio::io_context ioc{1};
         auto lobby = std::make_shared<MatchLobby>();
-        std::make_shared<Listener>(ioc, boost::asio::ip::tcp::endpoint{address, port}, lobby)->run();
+        auto auth_service = std::make_shared<JwtAuthService>("super_secret_key_123");
+        auto match_history_service = std::make_shared<DbMatchHistoryService>();
+
+        std::make_shared<Listener>(
+            ioc,
+            boost::asio::ip::tcp::endpoint{address, port},
+            lobby,
+            auth_service,
+            match_history_service)->run();
 
         std::cout << "WebSocket Server starting up on ws://0.0.0.0:" << port << "\n";
         ioc.run();
