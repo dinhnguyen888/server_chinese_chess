@@ -7,4 +7,9 @@ namespace db::user {
     bool register_user(const std::string& username, const std::string& password);
     std::optional<User> login_user(const std::string& username, const std::string& password);
     std::optional<User> get_user_by_username(const std::string& username);
+    
+    std::vector<User> get_all_users();
+    bool create_user(const std::string& username, const std::string& password, const std::string& role);
+    bool update_user(int id, const std::string& username, const std::string& password, const std::string& role);
+    bool delete_user(int id);
 }

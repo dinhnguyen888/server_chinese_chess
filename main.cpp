@@ -30,11 +30,17 @@ int main() {
 
         boost::asio::io_context ioc{1};
         auto lobby = std::make_shared<MatchLobbyService>();
-        std::make_shared<Listener>(ioc, boost::asio::ip::tcp::endpoint{address, ws_port}, lobby)->run();
-        std::make_shared<HttpListener>(ioc, boost::asio::ip::tcp::endpoint{address, http_port})->run();
+        std::cout << "[Init] MatchLobbyService created.\n";
 
-        std::cout << "WebSocket server: ws://0.0.0.0:" << ws_port << "\n";
-        std::cout << "HTTP API:        http://0.0.0.0:" << http_port << " (/register, /login)\n";
+        auto ws_listener = std::make_shared<Listener>(ioc, boost::asio::ip::tcp::endpoint{address, ws_port}, lobby);
+        ws_listener->run();
+        std::cout << "[Init] WebSocket listener started on port " << ws_port << ".\n";
+
+        auto http_listener = std::make_shared<HttpListener>(ioc, boost::asio::ip::tcp::endpoint{address, http_port});
+        http_listener->run();
+        std::cout << "[Init] HTTP API listener started on port " << http_port << ".\n";
+
+        std::cout << "--- Server is running ---\n";
         ioc.run();
     } catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << "\n";

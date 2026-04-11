@@ -47,9 +47,10 @@ void WsSession::run() {
         res.set(beast::http::field::server, "chinese-chess-ws");
     }));
 
-    auto self = shared_from_this();
-    player_ = std::make_shared<Player>([self](const json& msg) {
-        self->send_json(msg);
+    std::weak_ptr<WsSession> weak_self = shared_from_this();
+    player_ = std::make_shared<Player>([weak_self](const json& msg) {
+        if (auto self = weak_self.lock())
+            self->send_json(msg);
     });
 
     do_accept();
@@ -141,13 +142,13 @@ void WsSession::on_write(beast::error_code ec, std::size_t) {
 }
 
 void WsSession::send_http_error(http::status status, const std::string& message) {
-    http::response<http::string_body> res{status, req_.version()};
-    res.set(http::field::content_type, "application/json");
-    res.body() = json{{"type", "error"}, {"message", message}}.dump();
-    res.prepare_payload();
+    error_res_ = {status, req_.version()};
+    error_res_.set(http::field::content_type, "application/json");
+    error_res_.body() = json{{"type", "error"}, {"message", message}}.dump();
+    error_res_.prepare_payload();
 
     auto self = shared_from_this();
-    http::async_write(ws_.next_layer(), res, [self](beast::error_code, std::size_t) {
+    http::async_write(ws_.next_layer(), error_res_, [self](beast::error_code, std::size_t) {
         self->close_socket();
     });
 }

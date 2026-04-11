@@ -4,8 +4,9 @@
 namespace utils {
 namespace jwt {
 
-std::string generate_token(const std::string& username);
+std::string generate_token(const std::string& username, const std::string& role = "user");
 std::string decode_and_verify(const std::string& token);
+std::string extract_role(const std::string& token);
 
 }
 }

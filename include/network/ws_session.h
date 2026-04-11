@@ -38,4 +38,5 @@ private:
     std::queue<std::string> write_queue_;
     std::string pending_username_;
     bool closed_{false};
+    boost::beast::http::response<boost::beast::http::string_body> error_res_;
 };

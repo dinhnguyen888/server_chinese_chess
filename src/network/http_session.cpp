@@ -3,6 +3,9 @@
 #include <chrono>
 #include "utils/jwt_utils.h"
 #include <nlohmann/json.hpp>
+#include "db/match_db.h"
+#include "handlers/admin_handler.h"
+#include <regex>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -44,7 +47,7 @@ static http::response<http::string_body> handle_register(const http::request<htt
         return make_json_response(http::status::conflict, json{{"type", "error"}, {"message", "Tên đăng nhập đã tồn tại hoặc có lỗi xảy ra"}}, req.version(), req.keep_alive());
     }
 
-    std::string token = utils::jwt::generate_token(username);
+    std::string token = utils::jwt::generate_token(username, "user");
     return make_json_response(http::status::ok, json{{"type", "auth_success"}, {"username", username}, {"action", "register"}, {"token", token}}, req.version(), req.keep_alive());
 }
 
@@ -65,20 +68,22 @@ static http::response<http::string_body> handle_login(const http::request<http::
         return make_json_response(http::status::unauthorized, json{{"type", "error"}, {"message", "Sai tên đăng nhập hoặc mật khẩu"}}, req.version(), req.keep_alive());
     }
 
-    std::string token = utils::jwt::generate_token(user_opt->username);
+    std::string token = utils::jwt::generate_token(user_opt->username, user_opt->role);
     return make_json_response(http::status::ok, json{{"type", "auth_success"}, {"username", user_opt->username}, {"action", "login"}, {"token", token}}, req.version(), req.keep_alive());
 }
 
+
 static http::response<http::string_body> handle_request(const http::request<http::string_body>& req) {
-    if (req.method() != http::verb::post) {
-        return make_json_response(http::status::method_not_allowed, json{{"type", "error"}, {"message", "method_not_allowed"}}, req.version(), req.keep_alive());
-    }
+    std::string target = std::string(req.target());
 
     if (req.target() == "/register") {
         return handle_register(req);
     }
-    if (req.target() == "/login") {
+    if (target == "/login") {
         return handle_login(req);
+    }
+    if (target.find("/admin") == 0) {
+        return handlers::handle_admin_request(req);
     }
 
     return make_json_response(http::status::not_found, json{{"type", "error"}, {"message", "not_found"}}, req.version(), req.keep_alive());
@@ -106,10 +111,10 @@ void HttpSession::on_read(beast::error_code ec, std::size_t) {
     if (ec)
         return;
 
-    auto res = handle_request(req_);
-    bool close = res.need_eof();
+    res_ = handle_request(req_);
+    bool close = res_.need_eof();
     auto self = shared_from_this();
-    http::async_write(stream_, res, [self, close](beast::error_code write_ec, std::size_t bytes) {
+    http::async_write(stream_, res_, [self, close](beast::error_code write_ec, std::size_t bytes) {
         self->on_write(close, write_ec, bytes);
     });
 }

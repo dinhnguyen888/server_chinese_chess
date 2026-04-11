@@ -55,7 +55,8 @@ void init_schema() {
             "CREATE TABLE IF NOT EXISTS users ("
             "  id       SERIAL PRIMARY KEY,"
             "  username VARCHAR(50) UNIQUE NOT NULL,"
-            "  password VARCHAR(255) NOT NULL"
+            "  password VARCHAR(255) NOT NULL,"
+            "  role     VARCHAR(20) DEFAULT 'user'"
             ");"
         );
         w.exec(
@@ -78,6 +79,20 @@ void init_schema() {
         );
 
         w.commit();
+        
+        // Them admin mac dinh neu chua co
+        {
+            pqxx::connection c2(s_conn_str);
+            pqxx::work w2(c2);
+            pqxx::result r = w2.exec_params("SELECT 1 FROM users WHERE username=$1", "admin");
+            if (r.empty()) {
+                w2.exec_params("INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
+                             "admin", "admin123", "admin");
+                w2.commit();
+                std::cout << "[Init] Created default admin account (admin/admin123)\n";
+            }
+        }
+
         std::cout << "Schema OK (users, match_history, match_moves).\n";
     } catch (const std::exception& e) {
         std::cerr << "init_schema error: " << e.what() << "\n";
