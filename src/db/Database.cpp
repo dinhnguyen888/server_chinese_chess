@@ -5,7 +5,6 @@
 static std::string s_conn_str;
 
 namespace db {
-
 const std::string& conn_str() {
     return s_conn_str;
 }

@@ -1,4 +1,5 @@
-#include "network/listener.h"
+#include "network/ws_listener.h"
+#include "network/http_server.h"
 #include "service/match_lobby_service.h"
 #include "db/database.h"
 #include <boost/asio.hpp>
@@ -11,13 +12,16 @@ int main() {
         db::init_schema();
 
         auto const address = boost::asio::ip::make_address("0.0.0.0");
-        unsigned short port = 8080;
+        unsigned short ws_port = 8080;
+        unsigned short http_port = 8081;
 
         boost::asio::io_context ioc{1};
         auto lobby = std::make_shared<MatchLobbyService>();
-        std::make_shared<Listener>(ioc, boost::asio::ip::tcp::endpoint{address, port}, lobby)->run();
+        std::make_shared<Listener>(ioc, boost::asio::ip::tcp::endpoint{address, ws_port}, lobby)->run();
+        std::make_shared<HttpListener>(ioc, boost::asio::ip::tcp::endpoint{address, http_port})->run();
 
-        std::cout << "WebSocket Server starting up on ws://0.0.0.0:" << port << "\n";
+        std::cout << "WebSocket server: ws://0.0.0.0:" << ws_port << "\n";
+        std::cout << "HTTP API:         http://0.0.0.0:" << http_port << " (/register, /login)\n";
         ioc.run();
     } catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << "\n";

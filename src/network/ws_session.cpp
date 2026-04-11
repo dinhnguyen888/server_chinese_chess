@@ -2,9 +2,11 @@
 #include "service/match_lobby_service.h"
 #include "handlers/packet_dispatcher.h"
 #include "type/player.h"
+#include "utils/jwt_utils.h"
 #include <iostream>
 
 namespace beast = boost::beast;
+namespace http = beast::http;
 namespace websocket = beast::websocket;
 using boost::asio::ip::tcp;
 using json = nlohmann::json;
@@ -12,6 +14,28 @@ using json = nlohmann::json;
 static void fail(beast::error_code ec, char const* what) {
     if (ec != websocket::error::closed)
         std::cerr << what << ": " << ec.message() << "\n";
+}
+
+static std::string extract_query_param(const std::string& target, const std::string& key) {
+    auto qpos = target.find('?');
+    if (qpos == std::string::npos)
+        return "";
+    std::string query = target.substr(qpos + 1);
+    size_t start = 0;
+    while (start < query.size()) {
+        auto end = query.find('&', start);
+        if (end == std::string::npos)
+            end = query.size();
+        auto eq = query.find('=', start);
+        if (eq != std::string::npos && eq < end) {
+            std::string k = query.substr(start, eq - start);
+            if (k == key) {
+                return query.substr(eq + 1, end - eq - 1);
+            }
+        }
+        start = end + 1;
+    }
+    return "";
 }
 
 WsSession::WsSession(tcp::socket&& socket, MatchLobbyService& lobby)
@@ -22,13 +46,13 @@ void WsSession::run() {
     ws_.set_option(websocket::stream_base::decorator([](websocket::response_type& res) {
         res.set(beast::http::field::server, "chinese-chess-ws");
     }));
-    
+
     auto self = shared_from_this();
     player_ = std::make_shared<Player>([self](const json& msg) {
         self->send_json(msg);
     });
 
-    ws_.async_accept([self](beast::error_code ec) { self->on_accept(ec); });
+    do_accept();
 }
 
 void WsSession::send_json(const json& j) {
@@ -39,9 +63,42 @@ void WsSession::send_json(const json& j) {
         do_write();
 }
 
+void WsSession::do_accept() {
+    auto self = shared_from_this();
+    http::async_read(ws_.next_layer(), buffer_, req_,
+        [self](beast::error_code ec, std::size_t bytes) { self->on_accept_request(ec, bytes); });
+}
+
+void WsSession::on_accept_request(beast::error_code ec, std::size_t) {
+    if (ec)
+        return fail(ec, "read_handshake");
+
+    if (!websocket::is_upgrade(req_)) {
+        send_http_error(http::status::bad_request, "expected_websocket_upgrade");
+        return;
+    }
+
+    std::string token = extract_query_param(std::string(req_.target()), "token");
+    std::string username = utils::jwt::decode_and_verify(token);
+    if (username.empty()) {
+        send_http_error(http::status::unauthorized, "invalid_or_expired_token");
+        return;
+    }
+    pending_username_ = std::move(username);
+
+    auto self = shared_from_this();
+    ws_.async_accept(req_, [self](beast::error_code ec) { self->on_accept(ec); });
+}
+
 void WsSession::on_accept(beast::error_code ec) {
     if (ec)
         return fail(ec, "accept");
+
+    if (!pending_username_.empty() && player_) {
+        player_->name = pending_username_;
+        player_->send_json(json{{"type", "auth_success"}, {"username", player_->name}, {"action", "verify"}});
+    }
+
     do_read();
 }
 
@@ -83,11 +140,29 @@ void WsSession::on_write(beast::error_code ec, std::size_t) {
         do_write();
 }
 
+void WsSession::send_http_error(http::status status, const std::string& message) {
+    http::response<http::string_body> res{status, req_.version()};
+    res.set(http::field::content_type, "application/json");
+    res.body() = json{{"type", "error"}, {"message", message}}.dump();
+    res.prepare_payload();
+
+    auto self = shared_from_this();
+    http::async_write(ws_.next_layer(), res, [self](beast::error_code, std::size_t) {
+        self->close_socket();
+    });
+}
+
+void WsSession::close_socket() {
+    beast::error_code ec;
+    ws_.next_layer().shutdown(tcp::socket::shutdown_both, ec);
+    ws_.next_layer().close(ec);
+}
+
 void WsSession::on_close() {
     if (closed_)
         return;
     closed_ = true;
-    
+
     if (player_) {
         lobby_.cancel_waiting(player_);
         if (auto peer = player_->opponent_lock()) {

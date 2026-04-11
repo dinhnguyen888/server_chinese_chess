@@ -14,11 +14,7 @@ void MatchLobbyService::try_pair(std::shared_ptr<Player> player) {
     auto a = state_.waiting;
     state_.waiting.reset();
     auto b = std::move(player);
-    a->attach_opponent(b);
-    b->attach_opponent(a);
-    constexpr int kRedFirst = 1;
-    a->send_json(json{{"type", "matched"}, {"color", "r"}, {"orderSide", kRedFirst}, {"opponentName", b->name}});
-    b->send_json(json{{"type", "matched"}, {"color", "b"}, {"orderSide", kRedFirst}, {"opponentName", a->name}});
+    RoomService::pair_players(a, b);
 }
 
 void MatchLobbyService::cancel_waiting(const std::shared_ptr<Player>& player) {
@@ -103,12 +99,7 @@ void MatchLobbyService::start_game(std::shared_ptr<Player> player, const std::st
 }
 
 void MatchLobbyService::get_room_list(std::shared_ptr<Player> player) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    json room_list = json::array();
-    for (const auto& pair : state_.rooms) {
-        room_list.push_back(RoomService::to_json(pair.second));
-    }
-    player->send_json(json{{"type", "room_list"}, {"rooms", room_list}});
+    search_room(player, "");
 }
 
 void MatchLobbyService::search_room(std::shared_ptr<Player> player, const std::string& query) {
@@ -116,7 +107,7 @@ void MatchLobbyService::search_room(std::shared_ptr<Player> player, const std::s
     json room_list = json::array();
     for (const auto& pair : state_.rooms) {
         const RoomState& r = pair.second;
-        if (r.name.find(query) != std::string::npos || r.id == query) {
+        if (query.empty() || r.name.find(query) != std::string::npos || r.id == query) {
             room_list.push_back(RoomService::to_json(r));
         }
     }

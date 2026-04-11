@@ -1,18 +1,17 @@
-#include "network/listener.h"
-#include "network/ws_session.h"
-#include "service/match_lobby_service.h"
+#include "network/http_server.h"
+#include "network/http_session.h"
 #include <iostream>
 
 namespace beast = boost::beast;
-using boost::asio::ip::tcp;
+using tcp = boost::asio::ip::tcp;
 
-static void fail(beast::error_code ec, char const* what) {
+static void fail(boost::system::error_code ec, char const* what) {
     std::cerr << what << ": " << ec.message() << "\n";
 }
 
-Listener::Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, std::shared_ptr<MatchLobbyService> lobby)
-    : ioc_(ioc), acceptor_(ioc), lobby_(std::move(lobby)) {
-    beast::error_code ec;
+HttpListener::HttpListener(boost::asio::io_context& ioc, tcp::endpoint endpoint)
+    : ioc_(ioc), acceptor_(ioc) {
+    boost::system::error_code ec;
     acceptor_.open(endpoint.protocol(), ec);
     if (ec) {
         fail(ec, "open");
@@ -35,22 +34,22 @@ Listener::Listener(boost::asio::io_context& ioc, tcp::endpoint endpoint, std::sh
     }
 }
 
-void Listener::run() {
+void HttpListener::run() {
     do_accept();
 }
 
-void Listener::do_accept() {
+void HttpListener::do_accept() {
     auto self = shared_from_this();
-    acceptor_.async_accept([self](beast::error_code ec, tcp::socket socket) {
+    acceptor_.async_accept([self](boost::system::error_code ec, tcp::socket socket) {
         self->on_accept(ec, std::move(socket));
     });
 }
 
-void Listener::on_accept(beast::error_code ec, tcp::socket socket) {
+void HttpListener::on_accept(boost::system::error_code ec, tcp::socket socket) {
     if (ec) {
         fail(ec, "accept");
     } else {
-        std::make_shared<WsSession>(std::move(socket), *lobby_)->run();
+        std::make_shared<HttpSession>(std::move(socket))->run();
     }
     do_accept();
 }

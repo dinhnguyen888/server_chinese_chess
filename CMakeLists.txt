@@ -13,11 +13,12 @@ target_include_directories(server_chinese_chess PRIVATE include)
 
 add_compile_definitions(_WIN32_WINNT=0x0601)
 if(MSVC)
-    add_compile_options(/permissive-)
+    add_compile_options(/permissive- /Zc:dllexportInlines-)
 endif()
 
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(libpqxx CONFIG REQUIRED)
 find_package(jwt-cpp CONFIG REQUIRED)
 
@@ -28,8 +29,14 @@ FetchContent_MakeAvailable(json)
 target_link_libraries(server_chinese_chess PRIVATE
     Boost::system
     Threads::Threads
+    OpenSSL::SSL
+    OpenSSL::Crypto
     ws2_32
     nlohmann_json::nlohmann_json
     libpqxx::pqxx
     jwt-cpp::jwt-cpp
 )
+
+if(MSVC)
+    target_link_options(server_chinese_chess PRIVATE /FORCE:MULTIPLE)
+endif()

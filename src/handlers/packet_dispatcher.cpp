@@ -1,5 +1,4 @@
 #include "handlers/packet_dispatcher.h"
-#include "handlers/auth_handler.h"
 #include "handlers/lobby_handler.h"
 #include "handlers/game_handler.h"
 #include "type/player.h"
@@ -8,10 +7,6 @@
 using json = nlohmann::json;
 
 PacketDispatcher::PacketDispatcher() {
-    handlers_["verify_jwt"] = [](auto player, auto& lobby, const auto& msg) { AuthHandler::handle(player, msg, "verify_jwt"); };
-    handlers_["register"]   = [](auto player, auto& lobby, const auto& msg) { AuthHandler::handle(player, msg, "register"); };
-    handlers_["login"]      = [](auto player, auto& lobby, const auto& msg) { AuthHandler::handle(player, msg, "login"); };
-
     handlers_["find_match"] = [](auto player, auto& lobby, const auto& msg) { LobbyHandler::handle(player, lobby, msg, "find_match"); };
     handlers_["create_room"]= [](auto player, auto& lobby, const auto& msg) { LobbyHandler::handle(player, lobby, msg, "create_room"); };
     handlers_["join_room"]  = [](auto player, auto& lobby, const auto& msg) { LobbyHandler::handle(player, lobby, msg, "join_room"); };
