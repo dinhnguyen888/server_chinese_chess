@@ -1,10 +1,10 @@
 #include "network/http_session.h"
-#include "db/user_db.h"
+#include "service/user_service.h"
 #include <chrono>
 #include "utils/jwt_utils.h"
 #include <nlohmann/json.hpp>
-#include "db/match_db.h"
-#include "db/report_db.h"
+#include "service/game_service.h"
+#include "service/report_service.h"
 #include "handlers/admin_handler.h"
 #include <regex>
 
@@ -44,7 +44,7 @@ static http::response<http::string_body> handle_register(const http::request<htt
         return make_json_response(http::status::bad_request, json{{"type", "error"}, {"message", "missing_fields"}}, req.version(), req.keep_alive());
     }
 
-    if (!db::user::register_user(username, password)) {
+    if (!UserService::register_user(username, password)) {
         return make_json_response(http::status::conflict, json{{"type", "error"}, {"message", "Tên đăng nhập đã tồn tại hoặc có lỗi xảy ra"}}, req.version(), req.keep_alive());
     }
 
@@ -64,7 +64,7 @@ static http::response<http::string_body> handle_login(const http::request<http::
         return make_json_response(http::status::bad_request, json{{"type", "error"}, {"message", "missing_fields"}}, req.version(), req.keep_alive());
     }
 
-    auto user_opt = db::user::login_user(username, password);
+    auto user_opt = UserService::login_user(username, password);
     if (!user_opt) {
         return make_json_response(http::status::unauthorized, json{{"type", "error"}, {"message", "Sai tên đăng nhập hoặc mật khẩu"}}, req.version(), req.keep_alive());
     }
@@ -97,7 +97,7 @@ static http::response<http::string_body> handle_report(const http::request<http:
         return make_json_response(http::status::bad_request, json{{"error", "missing_fields"}}, req.version(), req.keep_alive());
     }
 
-    if (db::report::create_report(reporter, reported, match_id, reason)) {
+    if (ReportService::create_report(reporter, reported, match_id, reason)) {
         return make_json_response(http::status::ok, json{{"success", true}}, req.version(), req.keep_alive());
     }
     return make_json_response(http::status::internal_server_error, json{{"error", "db_error"}}, req.version(), req.keep_alive());

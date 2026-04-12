@@ -1,11 +1,9 @@
-#include "db/user_db.h"
+#include "service/user_service.h"
 #include "db/database.h"
 #include <pqxx/pqxx>
 #include <iostream>
 
-namespace db::user {
-
-bool register_user(const std::string& username, const std::string& password) {
+bool UserService::register_user(const std::string& username, const std::string& password) {
     if (username.empty() || username.length() > 20) return false;
     try {
         pqxx::connection c(db::conn_str());
@@ -20,7 +18,7 @@ bool register_user(const std::string& username, const std::string& password) {
     }
 }
 
-std::optional<User> login_user(const std::string& username, const std::string& password) {
+std::optional<User> UserService::login_user(const std::string& username, const std::string& password) {
     if (username.empty() || username.length() > 20) return std::nullopt;
     try {
         pqxx::connection c(db::conn_str());
@@ -46,7 +44,7 @@ std::optional<User> login_user(const std::string& username, const std::string& p
     }
 }
 
-std::optional<User> get_user_by_username(const std::string& username) {
+std::optional<User> UserService::get_user_by_username(const std::string& username) {
     if (username.empty()) return std::nullopt;
     try {
         pqxx::connection c(db::conn_str());
@@ -72,7 +70,7 @@ std::optional<User> get_user_by_username(const std::string& username) {
     }
 }
 
-std::vector<User> get_all_users() {
+std::vector<User> UserService::get_all_users() {
     std::vector<User> users;
     try {
         pqxx::connection c(db::conn_str());
@@ -94,7 +92,7 @@ std::vector<User> get_all_users() {
     return users;
 }
 
-bool create_user(const std::string& username, const std::string& password, const std::string& role) {
+bool UserService::create_user(const std::string& username, const std::string& password, const std::string& role) {
     try {
         pqxx::connection c(db::conn_str());
         pqxx::work w(c);
@@ -105,7 +103,7 @@ bool create_user(const std::string& username, const std::string& password, const
     } catch (...) { return false; }
 }
 
-bool update_user(int id, const std::string& username, const std::string& password, const std::string& role) {
+bool UserService::update_user(int id, const std::string& username, const std::string& password, const std::string& role) {
     try {
         pqxx::connection c(db::conn_str());
         pqxx::work w(c);
@@ -119,7 +117,7 @@ bool update_user(int id, const std::string& username, const std::string& passwor
     } catch (...) { return false; }
 }
 
-bool delete_user(int id) {
+bool UserService::delete_user(int id) {
     try {
         pqxx::connection c(db::conn_str());
         pqxx::work w(c);
@@ -129,7 +127,7 @@ bool delete_user(int id) {
     } catch (...) { return false; }
 }
 
-bool apply_punishment(const std::string& username, int ban_days, bool can_chat, bool can_create_room) {
+bool UserService::apply_punishment(const std::string& username, int ban_days, bool can_chat, bool can_create_room) {
     try {
         pqxx::connection c(db::conn_str());
         pqxx::work w(c);
@@ -151,5 +149,3 @@ bool apply_punishment(const std::string& username, int ban_days, bool can_chat, 
         return false;
     }
 }
-
-} 

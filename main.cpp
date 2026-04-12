@@ -2,12 +2,25 @@
 #include "network/http_server.h"
 #include "service/match_lobby_service.h"
 #include "db/database.h"
+#include "db/migration.h"
 #include "utils/env_config.h"
 #include <boost/asio.hpp>
 #include <iostream>
 
-int main() {
+int main(int argc, char* argv[]) {
     try {
+        if (argc > 1) {
+            std::string cmd = argv[1];
+            if (cmd == "add-migration") {
+                if (argc > 2) {
+                    db::migration::add_migration(argv[2]);
+                } else {
+                    std::cerr << "Usage: server_chinese_chess add-migration <name>\n";
+                }
+                return 0;
+            }
+        }
+
         utils::EnvConfig::load();
         
         std::string db_host = utils::EnvConfig::get("DB_HOST", "localhost");
@@ -22,6 +35,15 @@ int main() {
                               " user=" + db_user + " password=" + db_pass + 
                               " dbname=" + db_name;
         db::connect(conn_str);
+
+        if (argc > 1) {
+            std::string cmd = argv[1];
+            if (cmd == "update-database") {
+                db::migration::update_database();
+                return 0;
+            }
+        }
+
         db::init_schema();
 
         auto const address = boost::asio::ip::make_address("0.0.0.0");

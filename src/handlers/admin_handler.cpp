@@ -1,7 +1,7 @@
 #include "handlers/admin_handler.h"
-#include "db/user_db.h"
-#include "db/match_db.h"
-#include "db/report_db.h"
+#include "service/user_service.h"
+#include "service/game_service.h"
+#include "service/report_service.h"
 #include "utils/jwt_utils.h"
 #include "service/match_lobby_service.h"
 #include <nlohmann/json.hpp>
@@ -44,7 +44,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
 
     // GET /admin/users
     if (req.method() == http::verb::get && target == "/admin/users") {
-        auto users = db::user::get_all_users();
+        auto users = UserService::get_all_users();
         json j_users = json::array();
         for (auto const& u : users) {
             j_users.push_back({{"id", u.id}, {"username", u.username}, {"role", u.role}});
@@ -56,7 +56,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
     if (req.method() == http::verb::post && target == "/admin/users") {
         try {
             auto body = json::parse(req.body());
-            if (db::user::create_user(body["username"], body["password"], body["role"])) {
+            if (UserService::create_user(body["username"], body["password"], body["role"])) {
                 return make_json_response(http::status::created, json{{"success", true}}, version, keep_alive);
             }
         } catch (...) {}
@@ -67,7 +67,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
     if (req.method() == http::verb::put && target == "/admin/users") {
         try {
             auto body = json::parse(req.body());
-            if (db::user::update_user(body["id"], body["username"], body.value("password", ""), body["role"])) {
+            if (UserService::update_user(body["id"], body["username"], body.value("password", ""), body["role"])) {
                 return make_json_response(http::status::ok, json{{"success", true}}, version, keep_alive);
             }
         } catch (...) {}
@@ -80,7 +80,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
         std::smatch match;
         if (std::regex_search(target, match, id_regex)) {
             int id = std::stoi(match[1]);
-            if (db::user::delete_user(id)) {
+            if (UserService::delete_user(id)) {
                 return make_json_response(http::status::ok, json{{"success", true}}, version, keep_alive);
             }
         }
@@ -93,7 +93,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
         std::smatch match;
         if (std::regex_search(target, match, user_regex)) {
             std::string target_user = match[1];
-            auto history = db::match::get_history(target_user, 50);
+            auto history = GameService::get_history(target_user, 50);
             json j_history = json::array();
             for (auto const& m : history) {
                 j_history.push_back({
@@ -110,7 +110,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
 
     // GET /admin/reports
     if (req.method() == http::verb::get && target == "/admin/reports") {
-        auto reports = db::report::get_all_reports();
+        auto reports = ReportService::get_all_reports();
         json j_reports = json::array();
         for (auto const& r : reports) {
             j_reports.push_back({
@@ -125,7 +125,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
     if (req.method() == http::verb::put && target == "/admin/reports") {
         try {
             auto body = json::parse(req.body());
-            if (db::report::update_report_status(body["id"], body["status"])) {
+            if (ReportService::update_report_status(body["id"], body["status"])) {
                 return make_json_response(http::status::ok, json{{"success", true}}, version, keep_alive);
             }
         } catch (...) {}
@@ -141,7 +141,7 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
             bool can_chat = body.value("can_chat", true);
             bool can_create_room = body.value("can_create_room", true);
 
-            if (db::user::apply_punishment(target_user, ban_days, can_chat, can_create_room)) {
+            if (UserService::apply_punishment(target_user, ban_days, can_chat, can_create_room)) {
                 if (g_lobby) {
                     std::string reason = body.value("reason", "Vi phạm tiêu chuẩn cộng đồng");
                     std::string reporter = body.value("reporter", "Hệ thống");

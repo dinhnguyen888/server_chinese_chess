@@ -1,11 +1,9 @@
-#include "db/report_db.h"
+#include "service/report_service.h"
 #include "db/database.h"
 #include <pqxx/pqxx>
 #include <iostream>
 
-namespace db::report {
-
-bool create_report(const std::string& reporter, const std::string& reported, int match_id, const std::string& reason) {
+bool ReportService::create_report(const std::string& reporter, const std::string& reported, int match_id, const std::string& reason) {
     try {
         pqxx::connection c(db::conn_str());
         pqxx::work w(c);
@@ -24,7 +22,7 @@ bool create_report(const std::string& reporter, const std::string& reported, int
     }
 }
 
-std::vector<Report> get_all_reports() {
+std::vector<ReportService::Report> ReportService::get_all_reports() {
     std::vector<Report> reports;
     try {
         pqxx::connection c(db::conn_str());
@@ -47,7 +45,7 @@ std::vector<Report> get_all_reports() {
     return reports;
 }
 
-bool update_report_status(int id, const std::string& status) {
+bool ReportService::update_report_status(int id, const std::string& status) {
     try {
         pqxx::connection c(db::conn_str());
         pqxx::work w(c);
@@ -55,6 +53,4 @@ bool update_report_status(int id, const std::string& status) {
         w.commit();
         return true;
     } catch (...) { return false; }
-}
-
 }

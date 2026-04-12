@@ -13,3 +13,6 @@ cmake-build-*/
 # Logs and temp files
 *.log
 *.tmp
+
+# SQL Migrations
+migrations/

@@ -1,6 +1,6 @@
 #include "service/auth_service.h"
 #include "type/player.h"
-#include "db/user_db.h"
+#include "service/user_service.h"
 #include "utils/jwt_utils.h"
 #include <nlohmann/json.hpp>
 
@@ -17,7 +17,7 @@ void AuthService::verify_jwt(std::shared_ptr<Player> player, const std::string& 
 }
 
 void AuthService::register_user(std::shared_ptr<Player> player, const std::string& username, const std::string& password) {
-    if (db::user::register_user(username, password)) {
+    if (UserService::register_user(username, password)) {
         player->name = username;
         std::string token = utils::jwt::generate_token(username);
         player->send_json(json{{"type", "auth_success"}, {"username", username}, {"action", "register"}, {"token", token}});
@@ -27,7 +27,7 @@ void AuthService::register_user(std::shared_ptr<Player> player, const std::strin
 }
 
 void AuthService::login_user(std::shared_ptr<Player> player, const std::string& username, const std::string& password) {
-    auto user_opt = db::user::login_user(username, password);
+    auto user_opt = UserService::login_user(username, password);
     if (user_opt) {
         player->name = user_opt->username;
         std::string token = utils::jwt::generate_token(player->name);
