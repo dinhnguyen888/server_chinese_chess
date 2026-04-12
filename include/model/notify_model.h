@@ -3,6 +3,6 @@
 #include "db/schema_def.h"
 
 struct notify {
-    primary_key type("SERIAL") int id;
+    db_primary_key col_type("SERIAL") int id;
     
 };

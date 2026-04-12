@@ -18,7 +18,7 @@ bool UserService::register_user(const std::string& username, const std::string& 
     }
 }
 
-std::optional<User> UserService::login_user(const std::string& username, const std::string& password) {
+std::optional<users> UserService::login_user(const std::string& username, const std::string& password) {
     if (username.empty() || username.length() > 20) return std::nullopt;
     try {
         pqxx::connection c(db::conn_str());
@@ -30,7 +30,7 @@ std::optional<User> UserService::login_user(const std::string& username, const s
         );
         if (r.empty()) return std::nullopt;
         
-        User user;
+        users user;
         user.id = r[0]["id"].as<int>();
         user.username = r[0]["username"].c_str();
         user.role = r[0]["role"].c_str();
@@ -44,7 +44,7 @@ std::optional<User> UserService::login_user(const std::string& username, const s
     }
 }
 
-std::optional<User> UserService::get_user_by_username(const std::string& username) {
+std::optional<users> UserService::get_user_by_username(const std::string& username) {
     if (username.empty()) return std::nullopt;
     try {
         pqxx::connection c(db::conn_str());
@@ -56,7 +56,7 @@ std::optional<User> UserService::get_user_by_username(const std::string& usernam
         );
         if (r.empty()) return std::nullopt;
         
-        User user;
+        users user;
         user.id = r[0]["id"].as<int>();
         user.username = r[0]["username"].c_str();
         user.role = r[0]["role"].c_str();
@@ -70,26 +70,26 @@ std::optional<User> UserService::get_user_by_username(const std::string& usernam
     }
 }
 
-std::vector<User> UserService::get_all_users() {
-    std::vector<User> users;
+std::vector<users> UserService::get_all_users() {
+    std::vector<users> users_list;
     try {
         pqxx::connection c(db::conn_str());
         pqxx::nontransaction w(c);
         pqxx::result r = w.exec("SELECT id, username, role, TO_CHAR(banned_until, 'YYYY-MM-DD HH24:MI:SS') as banned_until, can_chat, can_create_room FROM users ORDER BY id ASC;");
         for (auto const& row : r) {
-            User u;
+            users u;
             u.id = row["id"].as<int>();
             u.username = row["username"].c_str();
             u.role = row["role"].c_str();
             u.banned_until = row["banned_until"].is_null() ? "" : row["banned_until"].c_str();
             u.can_chat = row["can_chat"].as<bool>();
             u.can_create_room = row["can_create_room"].as<bool>();
-            users.push_back(u);
+            users_list.push_back(u);
         }
     } catch (const std::exception& e) {
         std::cerr << "user::get_all_users error: " << e.what() << "\n";
     }
-    return users;
+    return users_list;
 }
 
 bool UserService::create_user(const std::string& username, const std::string& password, const std::string& role) {

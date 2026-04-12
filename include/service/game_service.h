@@ -3,10 +3,14 @@
 #include <string>
 #include <vector>
 #include "type/player.h"
-#include "db/db_types.h"
+#include "model/match_model.h"
 
 class GameService {
 public:
+    struct MatchRecord : public match_history {
+        bool has_report;
+    };
+
     static void process_winner(const std::string& my_name, const std::string& opp_name,
                                int winner_side, int duration_seconds,
                                const std::vector<std::string>& moves_array);

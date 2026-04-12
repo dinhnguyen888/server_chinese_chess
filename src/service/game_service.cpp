@@ -1,7 +1,6 @@
 #include "service/game_service.h"
 #include "type/player.h"
 #include "db/database.h"
-#include "db/db_types.h"
 #include <pqxx/pqxx>
 #include <iostream>
 
@@ -37,8 +36,8 @@ static bool save_match_db(const std::string& username, const std::string& oppone
     }
 }
 
-std::vector<MatchRecord> GameService::get_history(const std::string& username, int limit) {
-    std::vector<MatchRecord> records;
+std::vector<GameService::MatchRecord> GameService::get_history(const std::string& username, int limit) {
+    std::vector<GameService::MatchRecord> records;
     try {
         pqxx::connection c(db::conn_str());
         pqxx::nontransaction w(c);
@@ -54,7 +53,7 @@ std::vector<MatchRecord> GameService::get_history(const std::string& username, i
             username, limit
         );
         for (const auto& row : r) {
-            MatchRecord rec;
+            GameService::MatchRecord rec;
             rec.id               = row["id"].as<int>();
             rec.opponent         = row["opponent"].c_str();
             rec.result           = row["result"].c_str();
