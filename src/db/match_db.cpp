@@ -43,7 +43,8 @@ std::vector<MatchRecord> get_history(const std::string& username, int limit) {
         pqxx::result r = w.exec_params(
             "SELECT id, opponent, result,"
             "       TO_CHAR(played_at, 'DD/MM/YYYY HH24:MI') AS played_at,"
-            "       duration_seconds"
+            "       duration_seconds,"
+            "       EXISTS(SELECT 1 FROM reports WHERE match_id = match_history.id) as has_report"
             " FROM match_history"
             " WHERE username=$1"
             " ORDER BY played_at DESC"
@@ -57,6 +58,7 @@ std::vector<MatchRecord> get_history(const std::string& username, int limit) {
             rec.result           = row["result"].c_str();
             rec.played_at        = row["played_at"].c_str();
             rec.duration_seconds = row["duration_seconds"].as<int>();
+            rec.has_report       = row["has_report"].as<bool>();
             records.push_back(rec);
         }
     } catch (const std::exception& e) {

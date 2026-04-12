@@ -3,6 +3,7 @@
 #include "handlers/packet_dispatcher.h"
 #include "type/player.h"
 #include "utils/jwt_utils.h"
+#include "db/user_db.h"
 #include <iostream>
 
 namespace beast = boost::beast;
@@ -97,7 +98,20 @@ void WsSession::on_accept(beast::error_code ec) {
 
     if (!pending_username_.empty() && player_) {
         player_->name = pending_username_;
-        player_->send_json(json{{"type", "auth_success"}, {"username", player_->name}, {"action", "verify"}});
+        
+        auto user_opt = db::user::get_user_by_username(player_->name);
+        if (user_opt) {
+            player_->can_chat = user_opt->can_chat;
+            player_->can_create_room = user_opt->can_create_room;
+        }
+
+        player_->send_json(json{
+            {"type", "auth_success"}, 
+            {"username", player_->name}, 
+            {"action", "verify"},
+            {"can_chat", player_->can_chat},
+            {"can_create_room", player_->can_create_room}
+        });
     }
 
     do_read();

@@ -4,6 +4,7 @@
 #include "utils/jwt_utils.h"
 #include <nlohmann/json.hpp>
 #include "db/match_db.h"
+#include "db/report_db.h"
 #include "handlers/admin_handler.h"
 #include <regex>
 
@@ -68,14 +69,46 @@ static http::response<http::string_body> handle_login(const http::request<http::
         return make_json_response(http::status::unauthorized, json{{"type", "error"}, {"message", "Sai tên đăng nhập hoặc mật khẩu"}}, req.version(), req.keep_alive());
     }
 
+    if (!user_opt->banned_until.empty()) {
+        return make_json_response(http::status::forbidden, json{{"type", "error"}, {"message", "Tài khoản bị khóa đến " + user_opt->banned_until}}, req.version(), req.keep_alive());
+    }
+
     std::string token = utils::jwt::generate_token(user_opt->username, user_opt->role);
-    return make_json_response(http::status::ok, json{{"type", "auth_success"}, {"username", user_opt->username}, {"action", "login"}, {"token", token}}, req.version(), req.keep_alive());
+    return make_json_response(http::status::ok, 
+        json{{"type", "auth_success"}, {"username", user_opt->username}, {"action", "login"}, {"token", token}, 
+             {"can_chat", user_opt->can_chat}, {"can_create_room", user_opt->can_create_room}}, 
+        req.version(), req.keep_alive());
 }
 
+
+static http::response<http::string_body> handle_report(const http::request<http::string_body>& req) {
+    json body;
+    if (!parse_body(req, body)) return make_json_response(http::status::bad_request, json{{"error", "invalid_json"}}, req.version(), req.keep_alive());
+
+    std::string token = body.value("token", "");
+    std::string reporter = utils::jwt::decode_and_verify(token);
+    if (reporter.empty()) return make_json_response(http::status::unauthorized, json{{"error", "unauthorized"}}, req.version(), req.keep_alive());
+
+    std::string reported = body.value("reported", "");
+    std::string reason = body.value("reason", "");
+    int match_id = body.value("match_id", 0);
+
+    if (reported.empty() || reason.empty()) {
+        return make_json_response(http::status::bad_request, json{{"error", "missing_fields"}}, req.version(), req.keep_alive());
+    }
+
+    if (db::report::create_report(reporter, reported, match_id, reason)) {
+        return make_json_response(http::status::ok, json{{"success", true}}, req.version(), req.keep_alive());
+    }
+    return make_json_response(http::status::internal_server_error, json{{"error", "db_error"}}, req.version(), req.keep_alive());
+}
 
 static http::response<http::string_body> handle_request(const http::request<http::string_body>& req) {
     std::string target = std::string(req.target());
 
+    if (req.method() == http::verb::post && target == "/report") {
+        return handle_report(req);
+    }
     if (req.target() == "/register") {
         return handle_register(req);
     }

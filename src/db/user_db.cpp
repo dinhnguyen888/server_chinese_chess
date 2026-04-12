@@ -26,7 +26,8 @@ std::optional<User> login_user(const std::string& username, const std::string& p
         pqxx::connection c(db::conn_str());
         pqxx::nontransaction w(c);
         pqxx::result r = w.exec_params(
-            "SELECT id, username, role FROM users WHERE username=$1 AND password=$2;",
+            "SELECT id, username, role, TO_CHAR(banned_until, 'YYYY-MM-DD HH24:MI:SS') as banned_until, can_chat, can_create_room"
+            " FROM users WHERE username=$1 AND password=$2;",
             username, password
         );
         if (r.empty()) return std::nullopt;
@@ -35,6 +36,9 @@ std::optional<User> login_user(const std::string& username, const std::string& p
         user.id = r[0]["id"].as<int>();
         user.username = r[0]["username"].c_str();
         user.role = r[0]["role"].c_str();
+        user.banned_until = r[0]["banned_until"].is_null() ? "" : r[0]["banned_until"].c_str();
+        user.can_chat = r[0]["can_chat"].as<bool>();
+        user.can_create_room = r[0]["can_create_room"].as<bool>();
         return user;
     } catch (const std::exception& e) {
         std::cerr << "user::login error: " << e.what() << "\n";
@@ -48,7 +52,8 @@ std::optional<User> get_user_by_username(const std::string& username) {
         pqxx::connection c(db::conn_str());
         pqxx::nontransaction w(c);
         pqxx::result r = w.exec_params(
-            "SELECT id, username, role FROM users WHERE username=$1;",
+            "SELECT id, username, role, TO_CHAR(banned_until, 'YYYY-MM-DD HH24:MI:SS') as banned_until, can_chat, can_create_room"
+            " FROM users WHERE username=$1;",
             username
         );
         if (r.empty()) return std::nullopt;
@@ -57,6 +62,9 @@ std::optional<User> get_user_by_username(const std::string& username) {
         user.id = r[0]["id"].as<int>();
         user.username = r[0]["username"].c_str();
         user.role = r[0]["role"].c_str();
+        user.banned_until = r[0]["banned_until"].is_null() ? "" : r[0]["banned_until"].c_str();
+        user.can_chat = r[0]["can_chat"].as<bool>();
+        user.can_create_room = r[0]["can_create_room"].as<bool>();
         return user;
     } catch (const std::exception& e) {
         std::cerr << "user::get_user_by_username error: " << e.what() << "\n";
@@ -69,12 +77,15 @@ std::vector<User> get_all_users() {
     try {
         pqxx::connection c(db::conn_str());
         pqxx::nontransaction w(c);
-        pqxx::result r = w.exec("SELECT id, username, role FROM users ORDER BY id ASC;");
+        pqxx::result r = w.exec("SELECT id, username, role, TO_CHAR(banned_until, 'YYYY-MM-DD HH24:MI:SS') as banned_until, can_chat, can_create_room FROM users ORDER BY id ASC;");
         for (auto const& row : r) {
             User u;
             u.id = row["id"].as<int>();
             u.username = row["username"].c_str();
             u.role = row["role"].c_str();
+            u.banned_until = row["banned_until"].is_null() ? "" : row["banned_until"].c_str();
+            u.can_chat = row["can_chat"].as<bool>();
+            u.can_create_room = row["can_create_room"].as<bool>();
             users.push_back(u);
         }
     } catch (const std::exception& e) {
@@ -116,6 +127,29 @@ bool delete_user(int id) {
         w.commit();
         return true;
     } catch (...) { return false; }
+}
+
+bool apply_punishment(const std::string& username, int ban_days, bool can_chat, bool can_create_room) {
+    try {
+        pqxx::connection c(db::conn_str());
+        pqxx::work w(c);
+        
+        std::string banned_until_sql = "NULL";
+        if (ban_days == -1) { // Permanent
+            banned_until_sql = "NOW() + interval '99 years'";
+        } else if (ban_days > 0) {
+            banned_until_sql = "NOW() + interval '" + std::to_string(ban_days) + " days'";
+        }
+
+        std::string query = "UPDATE users SET banned_until=" + (ban_days == 0 ? "NULL" : banned_until_sql) + 
+                          ", can_chat=$1, can_create_room=$2 WHERE username=$3;";
+        w.exec_params(query, can_chat, can_create_room, username);
+        w.commit();
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "apply_punishment error: " << e.what() << "\n";
+        return false;
+    }
 }
 
 } 

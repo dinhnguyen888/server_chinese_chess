@@ -1,6 +1,7 @@
 #include "handlers/admin_handler.h"
 #include "db/user_db.h"
 #include "db/match_db.h"
+#include "db/report_db.h"
 #include "utils/jwt_utils.h"
 #include <nlohmann/json.hpp>
 #include <boost/beast/http.hpp>
@@ -104,6 +105,46 @@ http::response<http::string_body> handle_admin_request(const http::request<http:
             }
             return make_json_response(http::status::ok, j_history, version, keep_alive);
         }
+    }
+
+    // GET /admin/reports
+    if (req.method() == http::verb::get && target == "/admin/reports") {
+        auto reports = db::report::get_all_reports();
+        json j_reports = json::array();
+        for (auto const& r : reports) {
+            j_reports.push_back({
+                {"id", r.id}, {"reporter", r.reporter}, {"reported", r.reported},
+                {"match_id", r.match_id}, {"reason", r.reason}, {"status", r.status}, {"created_at", r.created_at}
+            });
+        }
+        return make_json_response(http::status::ok, j_reports, version, keep_alive);
+    }
+
+    // PUT /admin/reports (update status)
+    if (req.method() == http::verb::put && target == "/admin/reports") {
+        try {
+            auto body = json::parse(req.body());
+            if (db::report::update_report_status(body["id"], body["status"])) {
+                return make_json_response(http::status::ok, json{{"success", true}}, version, keep_alive);
+            }
+        } catch (...) {}
+        return make_json_response(http::status::bad_request, json{{"error", "invalid_data"}}, version, keep_alive);
+    }
+
+    // POST /admin/punish
+    if (req.method() == http::verb::post && target == "/admin/punish") {
+        try {
+            auto body = json::parse(req.body());
+            std::string target_user = body.value("username", "");
+            int ban_days = body.value("ban_days", 0);
+            bool can_chat = body.value("can_chat", true);
+            bool can_create_room = body.value("can_create_room", true);
+
+            if (db::user::apply_punishment(target_user, ban_days, can_chat, can_create_room)) {
+                return make_json_response(http::status::ok, json{{"success", true}}, version, keep_alive);
+            }
+        } catch (...) {}
+        return make_json_response(http::status::bad_request, json{{"error", "invalid_data"}}, version, keep_alive);
     }
 
     return make_json_response(http::status::not_found, json{{"error", "not_found"}}, version, keep_alive);

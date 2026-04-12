@@ -38,6 +38,16 @@ void PacketDispatcher::dispatch(std::shared_ptr<Player> player, MatchLobbyServic
 
     const std::string type = msg.value("type", "");
 
+    // Enforcement
+    if (type == "chat" && !player->can_chat) {
+        player->send_json(json{{"type", "error"}, {"message", "Bạn đã bị cấm chat"}});
+        return;
+    }
+    if ((type == "create_room" || type == "find_match") && !player->can_create_room) {
+        player->send_json(json{{"type", "error"}, {"message", "Bạn đã bị cấm tạo phòng hoặc tìm trận"}});
+        return;
+    }
+
     if (msg.contains("name")) {
         player->name = msg.value("name", player->name.empty() ? "Player" : player->name);
     }

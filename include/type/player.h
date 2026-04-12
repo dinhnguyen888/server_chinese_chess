@@ -18,6 +18,8 @@ public:
 
     std::string name = "Player";
     std::string current_room_id = "";
+    bool can_chat = true;
+    bool can_create_room = true;
 
     void attach_opponent(std::shared_ptr<Player> other) {
         opponent_ = other;

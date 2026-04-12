@@ -12,4 +12,6 @@ namespace db::user {
     bool create_user(const std::string& username, const std::string& password, const std::string& role);
     bool update_user(int id, const std::string& username, const std::string& password, const std::string& role);
     bool delete_user(int id);
+
+    bool apply_punishment(const std::string& username, int ban_days, bool can_chat, bool can_create_room);
 }
