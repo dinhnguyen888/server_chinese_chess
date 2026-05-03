@@ -4,7 +4,6 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      # Defaults if .env is missing
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASS:-postgres}
       POSTGRES_DB: ${DB_NAME:-chess_db}
@@ -45,8 +44,6 @@ services:
       context: ../client
       dockerfile: Dockerfile
       args:
-        # Pass the public URLs to Vite during the build step.
-        # These URLs will be injected into the static JS files.
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8081}
         VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080}
     restart: unless-stopped
